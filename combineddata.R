@@ -1,48 +1,10 @@
-## Loading all necessary libraries
-library(Matrix)
-library(sf)
 
-#############################
-### Writing a function of what crops are in which category
-#############################
 
-crop_cat <- function(x){case_when(
-  x %in% c("alfalfa", "bahiagrassseed", "birdsfootseed", "bluegrassseed",
-           "bromegrassseed", "crimsoncloverseed", "fescueseed",
-           "lespedezaseed", "orchardgrassseed", "redcloverseed",
-           "redtopseed", "ryegrassseed", "sweetcloverseed",
-           "sudangrassseed", "timothyseed", "vetchseed",
-           "wheatgrassseed", "winterpeasseed") ~ "hay_seed",
-  x %in% c("apples", "apricots", "avocados", "cherries",
-           "figs", "grapefruit", "honeytangerines", "kumquats",
-           "lemons", "limes", "mangoes", "nectarines", "oranges",
-           "papayas", "peaches", "pears", "persimmons", "plums",
-           "tangelos", "tangerines") ~ "fruit_trees",
-  x %in% c("asparagus", "broccoli", "brusselssprouts", "cauliflower",
-           "celery", "cucumbers", "eggplant", "hotpeppers", "okra",
-           "pimentos", "popcorn", "pumpkins", "squash", "sweetcorn",
-           "sweetpeppers", "tomatoes") ~ "vegetables_misc",
-  x %in% c("beets", "carrots", "garlic", "greenonions", "onions",
-           "potatoes", "radishes", "sweetpotatoes", "turnips") ~ "root_vegetables",
-  x %in% c("bananas", "cantaloups", "grapes", "honeydew", "kiwifruit",
-           "rhubarb", "watermelons") ~ "fruit_misc",
-  x %in% c("collards", "endive", "escarole", "headcabbage", "kale",
-           "lettuce", "mustardgreens", "parsley", "spinach",
-           "turnipgreens") ~ "leaves",
-  x %in% c("barley", "buckwheat", "emmerspelt", "graincorn", "oats",
-           "proso_millet", "rice", "rye", "triticale", "wheat",
-           "wildrice") ~ "grains",
-  x %in% c("blackberries", "blueberries", "cranberries", "raspberries",
-           "strawberries", "wildblueberries") ~ "berries",
-  x %in% c("drybeans", "drycowpeas", "drypeas", "greencowpeas",
-           "greenlima", "greenpeas", "lentils", "mungbeans", "snapbeans",
-           "soybeans", "peanuts") ~ "legumes",
-  x %in% c("hazelnuts", "pecans", "pistachios", "walnuts") ~ "nuts",
-  x %in% c("cotton", "flaxseed", "guar", "mintoil", "mustardseed",
-           "rapeseed", "safflower", "sugarbeets", "sugarcane", "sunflower",
-           "tobacco", "sorghum") ~ "misc",
-  .default = NA
-)}
+## Getting a winsorization function
+winsorize <- function(x, threshold = 0.05) {
+  q <- quantile(x, c(threshold, 1 - threshold), na.rm = TRUE)
+  pmin(pmax(x, q[1]), q[2])
+}
 
 ########################
 ### Importing geographical data
@@ -63,7 +25,7 @@ shapes1970 <- read_sf("Data/1970_shapefiles") |>
   select(-c(statefip, counfip))
 
 ## Joining it up with the acre-level statistics
-summarystats <- acres_1978_mod |>
+summarystats <- acres_1978_mod2 |>
   left_join(shapes1970, by = c("countycode")) |>
   filter(!is.na(geometry)) |>
   st_as_sf()
@@ -135,8 +97,6 @@ drought_all <- left_join(drought_1978, drought_1982, by = "countycode") |>
   left_join(drought_2007, by = "countycode")
 
 ## A function to get state codes
-library(dplyr)
-
 convert_to_fips <- function(x) {
   case_match(as.integer(x),
         1  ~ "1",  # Alabama
@@ -196,7 +156,6 @@ convert_to_fips <- function(x) {
 ## Precipitation
 precip <- read.csv("Data/precip.csv") |>
   filter(Year %in% c(1948:1977)) |>
-  mutate(across(numeric(), ~ na_if(.x, -9.99))) |>
   drop_na() |>
   mutate(yeartot = Jan + Feb + Mar + Apr + May + Jun + Jul + Aug + Sep + Oct +
            Nov + Dec,
@@ -218,60 +177,147 @@ unemp_1980 <- read.csv("Data/1980_employment_nhgis.csv") |>
 ### Merging county-level data
 ###############################
 
-countylevel_all <- left_join(countyprodall, growth_rates,
+countylevel_merged <- left_join(countyprodall, growth_rates,
                              by = "countycode") |>
-  left_join(countyprodgrowth, by = "countycode") |>
-  left_join(countyprodfarmsall, by = "countycode") |>
-  left_join(countyprodfarmacrevalueall, by = "countycode") |>
-  left_join(countyprodfarmlandall, by = "countycode") |>
-  left_join(countyprodfarmsizeall, by = "countycode") |>
-  left_join(countyprodfarmvalueall, by = "countycode") |>
-  left_join(countyprodirrlandall, by = "countycode") |>
-  left_join(countyprodnonirrlandall, by = "countycode") |>
+  left_join(countycroplandall, by = "countycode") |>
+  left_join(countyfarmsall, by = "countycode") |>
+  left_join(countyfarmacrevalueall, by = "countycode") |>
+  left_join(countyfarmlandall, by = "countycode") |>
+  left_join(countyfarmsizeall, by = "countycode") |>
+  left_join(countyfarmvalueall, by = "countycode") |>
+  left_join(countyirrlandall, by = "countycode") |>
+  left_join(countynonirrlandall, by = "countycode") |>
   left_join(countyprodvalall, by = "countycode") |>
+  left_join(countycropvalall, by = "countycode") |>
+  left_join(countyprodvalacreall, by = "countycode") |>
+  left_join(countyprodvalworkerall, by = "countycode") |>
+  left_join(countylaborintensityall, by = "countycode") |>
+  left_join(countyagempall, by = "countycode") |>
+  left_join(countycroplandratioall, by = "countycode") |>
+  left_join(countycropvalratioall, by = "countycode") |>
+  left_join(countymachineryall, by = "countycode") |>
+  left_join(countymachineryperall, by = "countycode") |>
+  left_join(countyfertilizerall, by = "countycode") |>
+  left_join(countyfertilizerperall, by = "countycode") |>
+  left_join(countypetroleumall, by = "countycode") |>
+  left_join(countypetroleumperall, by = "countycode") |>
   left_join(shiftshare_all, by = "countycode") |>
+  left_join(shiftshare_all_naics2, by = "countycode") |>
+  left_join(shiftshare_tradable_all, by = "countycode") |>
   left_join(drought_all, by = "countycode") |>
   left_join(precip, by = "countycode") |>
   left_join(growth_rates_nopollute, by = "countycode") |>
   left_join(growth_rates_pollute, by = "countycode") |>
+  left_join(growth_rates_nonag, by = "countycode") |>
   filter(cropland_1978 != 0 & cropland_1982 != 0 & cropland_1987 != 0 &
            cropland_1992 != 0 & cropland_1997 != 0 & cropland_2002 != 0 &
            cropland_2007 != 0 & cropland_2012 != 0) |>
   mutate(across(where(is.numeric), ~ replace(.x, is.infinite(.x), NA))) |>
-  mutate(across(starts_with("croplandgrowth"), ~ as.numeric(scale(.)), 
+  mutate(across(starts_with("croplandgrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                           threshold = 0.05), 
+                .names = "norm_{.col}")) |> ## I do the winsorizing after I merge it, on the set of counties that I actually use
+  mutate(across(starts_with("farmsgrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                        threshold = 0.05), 
                 .names = "norm_{.col}")) |>
-  mutate(across(starts_with("farmsgrowth"), ~ as.numeric(scale(.)), 
+  mutate(across(starts_with("farmacrevaluegrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                                threshold = 0.05), 
                 .names = "norm_{.col}")) |>
-  mutate(across(starts_with("farmacrevaluegrowth"), ~ as.numeric(scale(.)), 
+  mutate(across(starts_with("farmlandgrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                           threshold = 0.05), 
                 .names = "norm_{.col}")) |>
-  mutate(across(starts_with("farmlandgrowth"), ~ as.numeric(scale(.)), 
+  mutate(across(starts_with("farmsizegrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                           threshold = 0.05), 
                 .names = "norm_{.col}")) |>
-  mutate(across(starts_with("farmsizegrowth"), ~ as.numeric(scale(.)), 
+  mutate(across(starts_with("farmvaluegrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                            threshold = 0.05), 
                 .names = "norm_{.col}")) |>
-  mutate(across(starts_with("farmvaluegrowth"), ~ as.numeric(scale(.)), 
+  mutate(across(starts_with("irrlandgrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                          threshold = 0.05), 
                 .names = "norm_{.col}")) |>
-  mutate(across(starts_with("irrlandgrowth"), ~ as.numeric(scale(.)), 
+  mutate(across(starts_with("nonirrlandgrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                             threshold = 0.05), 
                 .names = "norm_{.col}")) |>
-  mutate(across(starts_with("nonirrlandgrowth"), ~ as.numeric(scale(.)), 
+  mutate(across(starts_with("prodvalgrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                          threshold = 0.05), 
                 .names = "norm_{.col}")) |>
-  mutate(across(starts_with("prodvalgrowth"), ~ as.numeric(scale(.)), 
+  mutate(across(starts_with("cropvalgrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                          threshold = 0.05), 
                 .names = "norm_{.col}")) |>
-  mutate(across(starts_with("shiftshare"), ~ as.numeric(scale(.)), 
+  mutate(across(starts_with("prodvalacregrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                          threshold = 0.05), 
                 .names = "norm_{.col}")) |>
+  mutate(across(starts_with("prodvalworkergrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                              threshold = 0.05), 
+                .names = "norm_{.col}")) |>
+  mutate(across(starts_with("laborintensitygrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                              threshold = 0.05), 
+                .names = "norm_{.col}")) |>
+  mutate(across(starts_with("agempgrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                                 threshold = 0.05), 
+                .names = "norm_{.col}")) |>
+  mutate(across(starts_with("shiftshare"), ~ winsorize(as.numeric(scale(.)),
+                                                       threshold = 0.05), 
+                .names = "norm_{.col}")) |>
+  mutate(across(starts_with("growth"), ~ winsorize(as.numeric(scale(.)),
+                                                   threshold = 0.05), 
+                .names = "norm_{.col}")) |>
+  mutate(across(starts_with("nopollute_growth"), ~ winsorize(as.numeric(scale(.)),
+                                                             threshold = 0.05), 
+                .names = "norm_{.col}")) |>
+  mutate(across(starts_with("pollute_growth"), ~ winsorize(as.numeric(scale(.)),
+                                                           threshold = 0.05), 
+                .names = "norm_{.col}")) |>
+  mutate(across(starts_with("growthnonag"), ~ winsorize(as.numeric(scale(.)),
+                                                           threshold = 0.05), 
+                .names = "norm_{.col}")) |>
+  mutate(across(starts_with("croplandratiogrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                        threshold = 0.05), 
+                .names = "norm_{.col}")) |>
+  mutate(across(starts_with("cropvalratiogrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                        threshold = 0.05), 
+                .names = "norm_{.col}")) |>
+  mutate(across(starts_with("machinerygrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                         threshold = 0.05), 
+                .names = "norm_{.col}")) |>
+  mutate(across(starts_with("machinerypergrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                         threshold = 0.05), 
+                .names = "norm_{.col}")) |>
+  mutate(across(starts_with("fertilizergrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                         threshold = 0.05), 
+                .names = "norm_{.col}")) |>
+  mutate(across(starts_with("fertilizerpergrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                         threshold = 0.05), 
+                .names = "norm_{.col}")) |>
+  mutate(across(starts_with("petroleumgrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                         threshold = 0.05), 
+                .names = "norm_{.col}")) |>
+  mutate(across(starts_with("petroleumpergrowth"), ~ winsorize(as.numeric(scale(.)),
+                                                         threshold = 0.05), 
+                .names = "norm_{.col}")) |>
+  mutate(across(starts_with("prodvalgrowth"), ~ percent_rank(.)*100, 
+                .names = "pctl_{.col}")) |>
+  mutate(across(starts_with("growth"), ~ percent_rank(.)*100, 
+                .names = "pctl_{.col}"))
+
+countylevel_all <- countylevel_merged |> ## Adding in some place variables
   left_join(shapes1970, by = "countycode") |>
   left_join(unemp_1980, by = "countycode") |>
+  left_join(cbp_agshares, by = "countycode") |>
   mutate(emppercap_1978 = `1978`/SHAPE_AREA,
          emppercap_1982 = `1982`/SHAPE_AREA,
          emppercap_1987 = `1987`/SHAPE_AREA,
          emppercap_1992 = `1992`/SHAPE_AREA,
          emppercap_1997 = `1997`/SHAPE_AREA,
          emppercap_2002 = `2002`/SHAPE_AREA,
-         emppercap_2007 = `2007`/SHAPE_AREA)
+         emppercap_2007 = `2007`/SHAPE_AREA,
+         quintile_emppercap = ntile(emppercap_1978, 5),
+         quintile_agshare = ntile(agshare_1978, 5))
 
 ################################
 ### Getting total stats instead
 ################################
 
+## For cropland
 cropland <- countylevel_all |>
   select(countycode, cropland_1978, cropland_1982, cropland_1987, cropland_1992, cropland_1997,
          cropland_2002, cropland_2007, cropland_2012) |>
@@ -281,6 +327,7 @@ cropland <- countylevel_all |>
   mutate(year = as.integer(str_sub(year, 10, -1))) |>
   ungroup()
 
+## For number of farms
 totfarms <- countylevel_all |>
   select(countycode, farms_1978, farms_1982, farms_1987, farms_1992, farms_1997,
          farms_2002, farms_2007, farms_2012) |>
@@ -289,3 +336,182 @@ totfarms <- countylevel_all |>
   summarize(totalfarms = sum(farms, na.rm = TRUE)) |>
   mutate(year = as.integer(str_sub(year, 7, -1))) |>
   ungroup()
+
+##############################
+### Getting the crop-by-county level
+##############################
+
+acres_growth <- acres_all |>
+  inner_join(acres_all, by = c("countycode", "crop"),
+             suffix = c("_from", "_to"),
+             relationship = "many-to-many") %>%
+  filter(year_from < year_to) %>%
+  mutate(growth_rate = if_else(acres_from == 0, NA, 
+                               (acres_to - acres_from) / acres_from)) |>
+  ungroup() |>
+  group_by(crop, year_from, year_to) |>
+  mutate(growth_rate_norm = winsorize(as.numeric(scale(growth_rate)),
+                                                  threshold = 0.05)) |>
+  ungroup() |>
+  left_join(growth_rates_nopivot, by = c("countycode", "year_from" = "year_base",
+                                         "year_to" = "year_end")) |>
+  group_by(year_from, year_to, crop) |>
+  mutate(econgrowth_norm = winsorize(as.numeric(scale(econgrowth)),
+                                     threshold = 0.05)) |>
+  ungroup() |>
+  filter(!is.na(growth_rate))
+
+acresgrouped_all <- acres_all |>
+  left_join(cropgroups, by = c("crop" = "names_all")) |>
+  group_by(countycode, year, group) |>
+  summarize(acres = sum(acres, na.rm = TRUE))
+
+acresgrouped_growth <- acresgrouped_all |>
+  inner_join(acresgrouped_all, by = c("countycode", "group"),
+             suffix = c("_from", "_to"),
+             relationship = "many-to-many") %>%
+  filter(year_from < year_to) %>%
+  mutate(growth_rate = if_else(acres_from == 0, NA, 
+                               (acres_to - acres_from) / acres_from)) |>
+  ungroup() |>
+  group_by(group, year_from, year_to) |>
+  mutate(growth_rate_norm = winsorize(as.numeric(scale(growth_rate)),
+                                      threshold = 0.05)) |>
+  ungroup() |>
+  left_join(growth_rates_nopivot, by = c("countycode", "year_from" = "year_base",
+                                         "year_to" = "year_end")) |>
+  group_by(year_from, year_to, group) |>
+  mutate(econgrowth_norm = winsorize(as.numeric(scale(econgrowth)),
+                                     threshold = 0.05)) |>
+  ungroup() |>
+  filter(!is.na(growth_rate))
+
+## Getting crops by production quintile
+acresprodquint <- acres_all |>
+  filter(year == 1978) |>
+  group_by(crop) |>
+  summarize(totalprod = sum(acres, na.rm = TRUE)) |>
+  mutate(prodquint = ntile(totalprod, 5))
+
+acresbyprod_all <- acres_all |>
+  left_join(acresprodquint, by = "crop") |>
+  group_by(countycode, year, prodquint) |>
+  summarize(acres = sum(acres, na.rm = TRUE))
+
+acresbyprod_growth <- acresbyprod_all |>
+  inner_join(acresbyprod_all, by = c("countycode", "prodquint"),
+             suffix = c("_from", "_to"),
+             relationship = "many-to-many") %>%
+  filter(year_from < year_to) %>%
+  mutate(growth_rate = if_else(acres_from == 0, NA, 
+                               (acres_to - acres_from) / acres_from)) |>
+  ungroup() |>
+  group_by(prodquint, year_from, year_to) |>
+  mutate(growth_rate_norm = winsorize(as.numeric(scale(growth_rate)),
+                                      threshold = 0.05)) |>
+  ungroup() |>
+  left_join(growth_rates_nopivot, by = c("countycode", "year_from" = "year_base",
+                                         "year_to" = "year_end")) |>
+  group_by(year_from, year_to, prodquint) |>
+  mutate(econgrowth_norm = winsorize(as.numeric(scale(econgrowth)),
+                                     threshold = 0.05)) |>
+  ungroup() |>
+  filter(!is.na(growth_rate))
+
+## And the animal-by-county level
+animals_growth <- animals_all |>
+  inner_join(animals_all, by = c("countycode", "animal"),
+             suffix = c("_from", "_to"),
+             relationship = "many-to-many") %>%
+  filter(year_from < year_to) %>%
+  mutate(growth_rate = if_else(number_from == 0, NA, 
+                               (number_to - number_from) / number_from)) |>
+  ungroup() |>
+  group_by(animal, year_from, year_to) |>
+  mutate(growth_rate_norm = winsorize(as.numeric(scale(growth_rate)),
+                                      threshold = 0.05)) |>
+  ungroup() |>
+  left_join(growth_rates_nopivot, by = c("countycode", "year_from" = "year_base",
+                                         "year_to" = "year_end")) |>
+  group_by(year_from, year_to, animal) |>
+  mutate(econgrowth_norm = winsorize(as.numeric(scale(econgrowth)),
+                                     threshold = 0.05)) |>
+  ungroup() |>
+  filter(!is.na(growth_rate))
+
+##############################
+### Getting a measure of how much each crop's initial counties grow
+##############################
+
+cropgrowths <- as.data.frame(cropgroups) |>
+  rename("crop" = names_all)
+for (i in c(1978, 1982, 1987, 1992, 1997, 2002, 2007)) {
+  for (j in c(1982, 1987, 1992, 1997, 2002, 2007, 2012)) {
+    if (j <= i) print("NA") else{
+  acres_wide <- acres_all |>
+    filter(year == i) |>
+    group_by(year, crop) |>
+    mutate(totcrop = sum(acres, na.rm = TRUE),
+           cropshare = acres/totcrop) |>
+    ungroup() |>
+    select(countycode, crop, cropshare) |>
+    pivot_wider(names_from = crop, values_from = cropshare)
+  col <- paste0("growth_", j, "_", i)
+  growth_rates_forhere <- growth_rates |>
+    filter(!is.na(.data[[col]]) & is.finite(.data[[col]]))
+  counties1 <- unique(acres_wide$countycode)
+  counties2 <- unique(growth_rates_forhere$countycode)
+  countiestouse <- intersect(counties1, counties2)
+  cropshifts <- growth_rates_forhere |>
+    filter(countycode %in% countiestouse) |>
+    ungroup() |>
+    arrange(countycode) |>
+    select(paste0("growth_", j, "_", i)) |>
+    as.matrix()
+  
+  cropbase <- growth_rates_forhere |>
+    filter(countycode %in% countiestouse) |>
+    ungroup() |>
+    arrange(countycode) |>
+    select(paste0(i)) |>
+    as.matrix()
+  
+  acres_mat <- acres_wide |>
+    filter(countycode %in% countiestouse) |>
+    arrange(countycode) |>
+    select(-c(countycode)) |>
+    as.matrix()
+  
+  cwg <- t(acres_mat)%*%cropshifts |>
+    as.data.frame() |>
+    rownames_to_column("crop")
+  
+  cropgrowths <- cropgrowths |>
+    left_join(cwg, by = "crop") 
+    } } 
+  cws <- t(acres_mat)%*%cropbase |>
+    as.data.frame() |>
+    rownames_to_column("crop")
+  cropgrowths <- cropgrowths |>
+    left_join(cws, by = "crop")
+  }
+
+cropgrowths2 <- cropgrowths |>
+  pivot_longer(cols = -c(crop, group, `1978`, `1982`, `1987`, `1992`, `1997`, `2002`, `2007`),
+               names_to = "name",
+               values_to = "econgrowth") |>
+  pivot_longer(cols = c(`1978`, `1982`, `1987`, `1992`, `1997`, `2002`, `2007`),
+               names_to = "year_base2",
+               values_to = "econshare") |>
+  mutate(year_end = as.numeric(str_sub(name, 8, 11)),
+         year_base = as.numeric(str_sub(name, 13, 16))) |>
+  filter(year_base == year_base2) |>
+  left_join(cropchanges, by = c("crop", "year_end", "year_base")) |>
+  group_by(year_base, year_end) |>
+  mutate(econgrowth_norm = winsorize(as.numeric(scale(econgrowth)),
+                                     threshold = 0.05),
+         cropgrowth_norm = winsorize(as.numeric(scale(cropgrowth)),
+                                     threshold = 0.05)) |>
+  ungroup() |>
+  mutate(weight = log(econshare)) |>
+  filter(weight > 0)
