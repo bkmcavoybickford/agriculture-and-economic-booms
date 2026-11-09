@@ -586,6 +586,18 @@ acres_all <- rbind(acres_1978_mod, acres_1982_mod, acres_1987_mod, acres_1992_mo
 cropprod <- acres_all |>
   group_by(crop, year) |>
   summarize(acres = sum(acres, na.rm = TRUE))
+cropprod_bigcrops <- acres_all |>
+  filter(crop %in% c("Corn (Grain)", "Wheat", "Soybeans")) |>
+  group_by(year, countycode) |>
+  summarize(majorcropacres = sum(acres, na.rm = TRUE)) |>
+  pivot_wider(values_from = majorcropacres,
+              names_from = year,
+              names_prefix = "majorcropacres_")
+
+## Getting corn counties
+corncounties <- acres_all |>
+  filter(crop == "Corn (Grain)" & year == 1978 & acres > 1000)
+corncounties <- unique(corncounties$countycode)
 
 ## Getting growths
 cropchanges <- inner_join(cropprod, cropprod, by = "crop",
@@ -612,7 +624,14 @@ countyprod_1978 <- read_delim("Data/ICPSR_35206/DS0039/35206-0039-Data.tsv",
          "prodval_1978" = item01019, "cropval_1978" = item01021,
          "nonmainops_1978" = item01031, "machinerypf_1978" = item01006,
          "fertilizer_1978" = item03013, "petroleum_1978" = item03017,
-         "propertytax_1978" = item03045)
+         "propertytax_1978" = item03045, "netreturn_1978" = item04002,
+         "netlossfarms_1978" = item04007, "cccloans_1978" = item04029,
+         "trucks_1978" = item08015, "tractors_1978" = item08017,
+         "govtpay_1978" = item04011, "family_1978" = item10054,
+         "partnership_1978" = item10056, "familycorp_1978" = item10058,
+         "corp_1978" = item10060, "otherorg_1978" = item10062,
+         "hiredlabor_1978" = item03029, "contractlabor_1978" = item03031,
+         "mainops_1978" = item01030)
 
 countyprod_1978_alt <- countyprod_1978 |>
   mutate(countycode = paste(statefip, counfip))
@@ -630,7 +649,15 @@ countyprod_1982 <- read_delim("Data/ICPSR_35206/DS0040/35206-0040-Data.tsv",
          "prodval_1982" = item01019, "cropval_1982" = item01021, 
          "nonmainops_1982" = item01031, "machinerypf_1982" = item01006,
          "fertilizer_1982" = item03013, "petroleum_1982" = item03017,
-         "propertytax_1982" = item03045)
+         "propertytax_1982" = item03045, "expenses_1982" = item01035,
+         "netlossfarms_1982" = item04007, "cccloans_1982" = item04029,
+         "trucks_1982" = item08015, "tractors_1982" = item08017,
+         "govtpay_1982" = item04011, "family_1982" = item10054,
+         "partnership_1982" = item10056, "familycorp_1982" = item10058,
+         "corp_1982" = item10060, "otherorg_1982" = item10062,
+         "hiredlabor_1982" = item03029, "contractlabor_1982" = item03031,
+         "mainops_1982" = item01030) |>
+  mutate(netreturn_1982 = if_else(is.na(prodval_1982), NA, expenses_1982/prodval_1982))
 
 ## 1987
 countyprod_1987 <- read_delim("Data/ICPSR_35206/DS0041/35206-0041-Data.tsv", 
@@ -645,7 +672,14 @@ countyprod_1987 <- read_delim("Data/ICPSR_35206/DS0041/35206-0041-Data.tsv",
          "prodval_1987" = item01019, "cropval_1987" = item01021, 
          "nonmainops_1987" = item01031, "machinerypf_1987" = item01006,
          "fertilizer_1987" = item03013, "petroleum_1987" = item03017,
-         "propertytax_1987" = item03045)
+         "propertytax_1987" = item03045, "netreturn_1987" = item04002,
+         "netlossfarms_1987" = item04007, "cccloans_1987" = item04029,
+         "trucks_1987" = item08015, "tractors_1987" = item08017,
+         "govtpay_1987" = item04011, "family_1987" = item10054,
+         "partnership_1987" = item10056, "familycorp_1987" = item10058,
+         "corp_1987" = item10060, "otherorg_1987" = item10062,
+         "hiredlabor_1987" = item03029, "contractlabor_1987" = item03031,
+         "mainops_1987" = item01030)
 
 ## 1992
 countyprod_1992 <- read_delim("Data/ICPSR_35206/DS0042/35206-0042-Data.tsv", 
@@ -660,7 +694,15 @@ countyprod_1992 <- read_delim("Data/ICPSR_35206/DS0042/35206-0042-Data.tsv",
          "prodval_1992" = item010019, "cropval_1992" = item010021,
          "nonmainops_1992" = item010036, "machinerypf_1992" = item010006,
          "fertilizer_1992" = item030013, "petroleum_1992" = item030017,
-         "propertytax_1992" = item030045)
+         "propertytax_1992" = item030045, "netreturn_1992" = item040002,
+         "netlossfarms_1992" = item040007, "cccloans_1992" = item040031,
+         "trucks_1992" = item090014, "tractors_1992" = item090016,
+         "govtpay_1992" = item040011, "family_1992" = item110052,
+         "partnership_1992" = item110054, "familycorp_1992" = item110056,
+         "corp_1992" = item110058, "otherorg_1992" = item110060,
+         "hiredlabor_1992" = item030029, "contractlabor_1992" = item030031,
+         "directsales_1992" = item040028, "hiredcount_1992" = item050002,
+         "mainops_1992" = item010035, "hiredcount150_1992" = item050014)
 
 ## 1997
 countyprod_1997 <- read_delim("Data/ICPSR_35206/DS0043/35206-0043-Data.tsv", 
@@ -674,7 +716,15 @@ countyprod_1997 <- read_delim("Data/ICPSR_35206/DS0043/35206-0043-Data.tsv",
          "prodval_1997" = ITEM01020, "cropval_1997" = ITEM01022, 
          "nonmainops_1997" = ITEM01037, "machinerypf_1997" = ITEM01007,
          "fertilizer_1997" = ITEM03013, "petroleum_1997" = ITEM03017,
-         "propertytax_1997" = ITEM03045) |>
+         "propertytax_1997" = ITEM03045, "netreturn_1997" = ITEM04002,
+         "netlossfarms_1997" = ITEM04007, "cccloans_1997" = ITEM04031,
+         "trucks_1997" = ITEM09014, "tractors_1997" = ITEM09016,
+         "govtpay_1997" = ITEM04011, "family_1997" = ITEM11052,
+         "partnership_1997" = ITEM11054, "familycorp_1997" = ITEM11056,
+         "corp_1997" = ITEM11058, "otherorg_1997" = ITEM11060,
+         "hiredlabor_1997" = ITEM03029, "contractlabor_1997" = ITEM03031,
+         "directsales_1997" = ITEM04028, "hiredcount_1997" = ITEM05002,
+         "mainops_1997" = ITEM01036, "hiredcount150_1997" = ITEM05015) |>
   filter(statefip != 02 & statefip != 15 & statefip != 11)
 
 ## 2002
@@ -688,7 +738,15 @@ countyprod_2002 <- read_delim("Data/ICPSR_35206/DS0044/35206-0044-Data.tsv",
          "cropland_2002" = item01015, "irrland_2002" = item01019,
          "prodval_2002" = item01020, "cropval_2002" = item01022, 
          "machinerypf_2002" = item01007, "fertilizer_2002" = item03009, 
-         "petroleum_2002" = item03037, "propertytax_2002" = item03081) |>
+         "petroleum_2002" = item03037, "propertytax_2002" = item03081, 
+         "netreturn_2002" = item04001, "netlossfarms_2002" = item04011, 
+         "cccloans_2002" = item05021, "tractors_2002" = item38027,
+         "govtpay_2002" = item05003, "family_2002" = item40107,
+         "partnership_2002" = item40111, "familycorp_2002" = item40115,
+         "corp_2002" = item40119, "otherorg_2002" = item40123,
+         "hiredlabor_2002" = item03049, "contractlabor_2002" = item03053,
+         "directsales_2002" = item02129, "hiredcount_2002" = item07002,
+         "mainops_2002" = item01040, "hiredcount150_2002" = item07015) |>
   filter(statefip != 02 & statefip != 15 & statefip != 11)
 
 ## 2007
@@ -702,7 +760,15 @@ countyprod_2007 <- read_delim("Data/ICPSR_35206/DS0045/35206-0045-Data.tsv",
          "cropland_2007" = data1_15, "irrland_2007" = data1_19,
          "prodval_2007" = data1_20, "cropval_2007" = data1_22,
          "machinerypf_2007" = data1_7, "fertilizer_2007" = data3_9, 
-         "petroleum_2007" = data3_37, "propertytax_2007" = data3_81) |>
+         "petroleum_2007" = data3_37, "propertytax_2007" = data3_81, 
+         "netreturn_2007" = data4_1, "netlossfarms_2007" = data4_9, 
+         "cccloans_2007" = data5_21, "tractors_2007" = data41_31,
+         "govtpay_2007" = data5_3, "family_2007" = data46_139,
+         "partnership_2007" = data46_143, "familycorp_2007" = data46_147,
+         "corp_2007" = data46_151, "otherorg_2007" = data46_155,
+         "hiredlabor_2007" = data3_49, "contractlabor_2007" = data3_53,
+         "directsales_2007" = data2_157, "hiredcount_2007" = data7_2,
+         "mainops_2007" = data1_40, "hiredcount150_2007" = data7_15) |>
   filter(statefip != 02 & statefip != 15 & statefip != 11)
 
 ## 2012
@@ -716,7 +782,15 @@ countyprod_2012 <- read_delim("Data/ICPSR_35206/DS0047/35206-0047-Data.tsv",
          "cropland_2012" = DATA1_16, "irrland_2012" = DATA1_20,
          "prodval_2012" = DATA1_21, "cropval_2012" = DATA1_23,
          "machinerypf_2012" = DATA1_8, "fertilizer_2012" = DATA3_9, 
-         "petroleum_2012" = DATA3_37, "propertytax_2012" = DATA3_81) |>
+         "petroleum_2012" = DATA3_37, "propertytax_2012" = DATA3_81, 
+         "netreturn_2012" = DATA4_1, "netlossfarms_2012" = DATA4_9, 
+         "cccloans_2012" = DATA5_21, "tractors_2012" = DATA40_31,
+         "govtpay_2012" = DATA5_3, "family_2012" = DATA45_143,
+         "partnership_2012" = DATA45_147, "familycorp_2012" = DATA45_151,
+         "corp_2012" = DATA45_155, "otherorg_2012" = DATA45_159,
+         "hiredlabor_2012" = DATA3_49, "contractlabor_2012" = DATA3_53,
+         "directsales_2012" = DATA2_177, "hiredcount_2012" = DATA7_2,
+         "mainops_2012" = DATA1_41, "hiredcount150_2012" = DATA7_15) |>
   filter(statefip != 02 & statefip != 15 & statefip != 11)
 
 
@@ -730,8 +804,9 @@ countyprodall <- left_join(countyprod_1978, countyprod_1982, by = c("counfip", "
   left_join(countyprod_2012, by = c("counfip", "statefip")) |>
   mutate(countycode = paste(statefip, counfip)) |>
   left_join(cbp_ag, by = "countycode") |>
+  left_join(censusemp, by = "countycode") |>
+  left_join(cropprod_bigcrops, by = "countycode") |>
   filter(countycode %in% common_counties) |>
-  filter(!is.na(cropland_1978)) |>
   mutate(nonirrland_1978 = if_else(is.na(irrland_1978), cropland_1978, cropland_1978 - irrland_1978),
          nonirrland_1982 = if_else(is.na(irrland_1982), cropland_1982, cropland_1982 - irrland_1982),
          nonirrland_1987 = if_else(is.na(irrland_1987), cropland_1987, cropland_1987 - irrland_1987),
@@ -756,14 +831,6 @@ countyprodall <- left_join(countyprod_1978, countyprod_1982, by = c("counfip", "
          prodvalworker_2002 = if_else(is.na(agemp_2002), NA, prodval_2002/agemp_2002),
          prodvalworker_2007 = if_else(is.na(agemp_2007), NA, prodval_2007/agemp_2007),
          prodvalworker_2012 = if_else(is.na(agemp_2012), NA, prodval_2012/agemp_2012),
-         laborintensity_1978 = if_else(is.na(farmland_1978), NA, agemp_1978/farmland_1978),
-         laborintensity_1982 = if_else(is.na(farmland_1982), NA, agemp_1982/farmland_1982),
-         laborintensity_1987 = if_else(is.na(farmland_1987), NA, agemp_1987/farmland_1987),
-         laborintensity_1992 = if_else(is.na(farmland_1992), NA, agemp_1992/farmland_1992),
-         laborintensity_1997 = if_else(is.na(farmland_1997), NA, agemp_1997/farmland_1997),
-         laborintensity_2002 = if_else(is.na(farmland_2002), NA, agemp_2002/farmland_2002),
-         laborintensity_2007 = if_else(is.na(farmland_2007), NA, agemp_2007/farmland_2007),
-         laborintensity_2012 = if_else(is.na(farmland_2012), NA, agemp_2012/farmland_2012),
          croplandratio_1978 = if_else(is.na(farmland_1978), NA, cropland_1978/farmland_1978),
          croplandratio_1982 = if_else(is.na(farmland_1982), NA, cropland_1982/farmland_1982),
          croplandratio_1987 = if_else(is.na(farmland_1987), NA, cropland_1987/farmland_1987),
@@ -811,7 +878,74 @@ countyprodall <- left_join(countyprod_1978, countyprod_1982, by = c("counfip", "
          petroleumper_1997 = if_else(is.na(prodval_1997), NA, petroleum_1997/prodval_1997),
          petroleumper_2002 = if_else(is.na(prodval_2002), NA, petroleum_2002/prodval_2002),
          petroleumper_2007 = if_else(is.na(prodval_2007), NA, petroleum_2007/prodval_2007),
-         petroleumper_2012 = if_else(is.na(prodval_2012), NA, petroleum_2012/prodval_2012))
+         petroleumper_2012 = if_else(is.na(prodval_2012), NA, petroleum_2012/prodval_2012),
+         profitmargin_1978 = if_else(is.na(prodval_1978), NA, netreturn_1978/prodval_1978),
+         profitmargin_1982 = if_else(is.na(prodval_1982), NA, netreturn_1982/prodval_1982),
+         profitmargin_1987 = if_else(is.na(prodval_1987), NA, netreturn_1987/prodval_1987),
+         profitmargin_1992 = if_else(is.na(prodval_1992), NA, netreturn_1992/prodval_1992),
+         profitmargin_1997 = if_else(is.na(prodval_1997), NA, netreturn_1997/prodval_1997),
+         profitmargin_2002 = if_else(is.na(prodval_2002), NA, netreturn_2002/prodval_2002),
+         profitmargin_2007 = if_else(is.na(prodval_2007), NA, netreturn_2007/prodval_2007),
+         profitmargin_2012 = if_else(is.na(prodval_2012), NA, netreturn_2012/prodval_2012),
+         netlosspct_1978 = if_else(is.na(farms_1978), NA, netlossfarms_1978/farms_1978),
+         netlosspct_1982 = if_else(is.na(farms_1982), NA, netlossfarms_1982/farms_1982),
+         netlosspct_1987 = if_else(is.na(farms_1987), NA, netlossfarms_1987/farms_1987),
+         netlosspct_1992 = if_else(is.na(farms_1992), NA, netlossfarms_1992/farms_1992),
+         netlosspct_1997 = if_else(is.na(farms_1997), NA, netlossfarms_1997/farms_1997),
+         netlosspct_2002 = if_else(is.na(farms_2002), NA, netlossfarms_2002/farms_2002),
+         netlosspct_2007 = if_else(is.na(farms_2007), NA, netlossfarms_2007/farms_2007),
+         netlosspct_2012 = if_else(is.na(farms_2012), NA, netlossfarms_2012/farms_2012),
+         tractorsper_1978 = if_else(is.na(prodval_1978), NA, tractors_1978/prodval_1978),
+         tractorsper_1982 = if_else(is.na(prodval_1982), NA, tractors_1982/prodval_1982),
+         tractorsper_1987 = if_else(is.na(prodval_1987), NA, tractors_1987/prodval_1987),
+         tractorsper_1992 = if_else(is.na(prodval_1992), NA, tractors_1992/prodval_1992),
+         tractorsper_1997 = if_else(is.na(prodval_1997), NA, tractors_1997/prodval_1997),
+         tractorsper_2002 = if_else(is.na(prodval_2002), NA, tractors_2002/prodval_2002),
+         tractorsper_2007 = if_else(is.na(prodval_2007), NA, tractors_2007/prodval_2007),
+         tractorsper_2012 = if_else(is.na(prodval_2012), NA, tractors_2012/prodval_2012),
+         emplabor_1978 = hiredlabor_1978 + contractlabor_1978,
+         emplabor_1982 = hiredlabor_1982 + contractlabor_1982,
+         emplabor_1987 = hiredlabor_1987 + contractlabor_1987,
+         emplabor_1992 = hiredlabor_1992 + contractlabor_1992,
+         emplabor_1997 = hiredlabor_1997 + contractlabor_1997,
+         emplabor_2002 = hiredlabor_2002 + contractlabor_2002,
+         emplabor_2007 = hiredlabor_2007 + contractlabor_2007,
+         emplabor_2012 = hiredlabor_2012 + contractlabor_2012,
+         empcount_1992 = hiredcount150_1992 + mainops_1992,
+         empcount_1997 = hiredcount150_1997 + mainops_1997,
+         empcount_2002 = hiredcount150_2002 + mainops_2002,
+         empcount_2007 = hiredcount150_2007 + mainops_2007,
+         empcount_2012 = hiredcount150_2012 + mainops_2012,
+         laborintensity_1992 = if_else(is.na(farmland_1992), NA, empcount_1992/farmland_1992),
+         laborintensity_1997 = if_else(is.na(farmland_1997), NA, empcount_1997/farmland_1997),
+         laborintensity_2002 = if_else(is.na(farmland_2002), NA, empcount_2002/farmland_2002),
+         laborintensity_2007 = if_else(is.na(farmland_2007), NA, empcount_2007/farmland_2007),
+         laborintensity_2012 = if_else(is.na(farmland_2012), NA, empcount_2012/farmland_2012),
+         prodvalnondirect_1992 = prodval_1992 - directsales_1992,
+         prodvalnondirect_1997 = prodval_1997 - directsales_1997,
+         prodvalnondirect_2002 = prodval_2002 - directsales_2002,
+         prodvalnondirect_2007 = prodval_2007 - directsales_2007,
+         prodvalnondirect_2012 = prodval_2012 - directsales_2012,
+         familyfarmpct_1978 = if_else(is.na(farmland_1978), NA, (family_1978 + familycorp_1978)/farmland_1978),
+         familyfarmpct_1982 = if_else(is.na(farmland_1982), NA, (family_1982 + familycorp_1982)/farmland_1982),
+         familyfarmpct_1987 = if_else(is.na(farmland_1987), NA, (family_1987 + familycorp_1987)/farmland_1987),
+         familyfarmpct_1992 = if_else(is.na(farmland_1992), NA, (family_1992 + familycorp_1992)/farmland_1992),
+         familyfarmpct_1997 = if_else(is.na(farmland_1997), NA, (family_1997 + familycorp_1997)/farmland_1997),
+         familyfarmpct_2002 = if_else(is.na(farmland_2002), NA, (family_2002 + familycorp_2002)/farmland_2002),
+         familyfarmpct_2007 = if_else(is.na(farmland_2007), NA, (family_2007 + familycorp_2007)/farmland_2007),
+         familyfarmpct_2012 = if_else(is.na(farmland_2012), NA, (family_2012 + familycorp_2012)/farmland_2012),
+         majorcroppct_1978 = if_else(is.na(farmland_1978), NA, (majorcropacres_1978/farmland_1978)),
+         majorcroppct_1982 = if_else(is.na(farmland_1982), NA, (majorcropacres_1982/farmland_1982)),
+         majorcroppct_1987 = if_else(is.na(farmland_1987), NA, (majorcropacres_1987/farmland_1987)),
+         majorcroppct_1992 = if_else(is.na(farmland_1992), NA, (majorcropacres_1992/farmland_1992)),
+         majorcroppct_1997 = if_else(is.na(farmland_1997), NA, (majorcropacres_1997/farmland_1997)),
+         majorcroppct_2002 = if_else(is.na(farmland_2002), NA, (majorcropacres_2002/farmland_2002)),
+         majorcroppct_2007 = if_else(is.na(farmland_2007), NA, (majorcropacres_2007/farmland_2007)),
+         majorcroppct_2012 = if_else(is.na(farmland_2012), NA, (majorcropacres_2012/farmland_2012)))
+
+
+test <- countyprodall |>
+  select(cccloans_1978, cccloans_1982)
 
 ## Getting a function that converts these variables to growth
 compute_growth <- function(var) {
@@ -864,7 +998,29 @@ compute_growth("fertilizer")
 compute_growth("fertilizerper")
 compute_growth("petroleum")
 compute_growth("petroleumper")
-
+compute_growth("netreturn")
+compute_growth("profitmargin")
+compute_growth("netlossfarms")
+compute_growth("netlosspct")
+compute_growth("tractors")
+compute_growth("tractorsper")
+compute_growth("cccloans")
+compute_growth("propertytax")
+compute_growth("govtpay")
+compute_growth("family")
+compute_growth("partnership")
+compute_growth("familycorp")
+compute_growth("corp")
+compute_growth("otherorg")
+compute_growth("directsales")
+compute_growth("emplabor")
+compute_growth("mainops")
+compute_growth("empcount")
+compute_growth("hiredcount")
+compute_growth("censusemp")
+compute_growth("prodvalnondirect")
+compute_growth("familyfarmpct")
+compute_growth("majorcroppct")
 
 ###################################
 ### Getting the other data from the same source

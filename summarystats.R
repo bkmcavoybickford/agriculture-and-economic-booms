@@ -263,17 +263,31 @@ ggplot(data = totfarms, aes(x = year, y = totalfarms)) +
   scale_y_continuous(labels = scales::comma)
 ggsave("Output/Figures/totalfarms.png", width = 6, height = 4)
 
+## And total production value
+ggplot(data = totprodval, aes(x = year, y = totalprodval)) +
+  geom_line() + geom_point(color = "red") + 
+  mytheme + labs(x = "Year", y = "Total Production Value") +
+  scale_y_continuous(labels = scales::comma)
+ggsave("Output/Figures/totalprodval.png", width = 6, height = 4)
+
+## Total acres in ownership structures
+ggplot(data = ownershipstats, aes(x = Year, y = total, fill = Type)) +
+  geom_col(position = "fill") +
+  scale_y_continuous(labels = percent_format()) + mytheme +
+  labs(y = "Share", x = "Year")
+ggsave("Output/Figures/ownershiptypes.png", width = 6, height = 4)
+
 ####################################
 ### Getting a correlation matrix for precipitation
 ####################################
 
 corr_precip <- countylevel_all |>
-  select("Norm. Employment Growth, 1978-2012" = norm_growth_2012_1978,
-         "Norm. Employment Growth, 1978-2007" = norm_growth_2007_1978,
-         "Norm. Employment Growth, 1978-1982" = norm_growth_1982_1978,
+  select("Pctl. Employment Growth, 1978-2012" = pctl_growth_2012_1978,
+         "Pctl. Employment Growth, 1978-2007" = pctl_growth_2007_1978,
+         "Pctl. Employment Growth, 1978-1982" = pctl_growth_1982_1978,
          "Precipitation" = precip,
          "Drought, 1978-2012" = drought_1978_2012,
-         "Norm. Cropland Growth, 1978-2012" = norm_croplandgrowth_2012_1978) |>
+         "Pctl. Cropland Growth, 1978-2012" = pctl_croplandgrowth_2012_1978) |>
   mutate(across(everything(), as.numeric)) |>
   filter(if_all(everything(), is.finite)) |>
   cor() |>
@@ -308,140 +322,150 @@ ggsave("Output/Figures/corr_precip.png")
 ########################################
 
 ## Making the data choroplethable
-countylevel_choro <- countylevel_merged |>
-  right_join(shapes1970, by = "countycode") |>
+countylevel_choro <- countylevel_all |>
   st_as_sf() |>
   filter(NHGISST != "020" & NHGISST != "150")
 
 ## Making a choropleth of 1978-2012 employed pop growth
 ggplot(data = countylevel_choro) + 
-  geom_sf(aes(fill = norm_growth_2012_1978), colour = NA) + theme_void() + 
-  scale_fill_viridis_c(breaks = c(-1,0,1), label = c(-1,0,1),
-                       trans = scales::pseudo_log_trans(),
-                       na.value = "grey") +
+  geom_sf(aes(fill = wins_growth_2012_1978), colour = NA) + theme_void() + 
+  scale_fill_viridis_c(na.value = "grey") +
   labs(fill = "") +
   theme(text = element_text(family = "Times New Roman"),
         plot.margin = margin(5, 5, 5, 5, "pt"),
         plot.title = element_text(hjust = 0.5)) +
   coord_sf(expand = FALSE)
-ggsave("Output/Figures/normgrowth_1978_2012.png", width = 6, height = 4)
+ggsave("Output/Figures/winsgrowth_1978_2012.png", width = 6, height = 4)
 
 ## Doing the same for the shift share
 ggplot(data = countylevel_choro) + 
-  geom_sf(aes(fill = norm_shiftshare_2012_1978), colour = NA) + theme_void() + 
-  scale_fill_viridis_c(breaks = c(-1,0,1), label = c(-1,0,1),
-                       trans = scales::pseudo_log_trans(),
-                       na.value = "grey") +
+  geom_sf(aes(fill = wins_shiftshare_2012_1978), colour = NA) + theme_void() + 
+  scale_fill_viridis_c(na.value = "grey") +
   labs(fill = "") +
   theme(text = element_text(family = "Times New Roman"),
         plot.margin = margin(5, 5, 5, 5, "pt"),
         plot.title = element_text(hjust = 0.5)) +
   coord_sf(expand = FALSE)
-ggsave("Output/Figures/normshiftshare_1978_2012.png", width = 6, height = 4)
+ggsave("Output/Figures/winsshiftshare_1978_2012.png", width = 6, height = 4)
 
 ## Doing the same for cropland
 ggplot(data = countylevel_choro) + 
-  geom_sf(aes(fill = norm_croplandgrowth_2012_1978), colour = NA) + theme_void() + 
-  scale_fill_viridis_c(breaks = c(-1,0,1), label = c(-1,0,1),
-                       trans = scales::pseudo_log_trans(),
-                       na.value = "grey") +
+  geom_sf(aes(fill = wins_croplandgrowth_2012_1978), colour = NA) + theme_void() + 
+  scale_fill_viridis_c(na.value = "grey") +
   labs(fill = "") +
   theme(text = element_text(family = "Times New Roman"),
         plot.margin = margin(5, 5, 5, 5, "pt"),
         plot.title = element_text(hjust = 0.5)) +
   coord_sf(expand = FALSE)
-ggsave("Output/Figures/normcroplandgrowth_1978_2012.png", width = 6, height = 4)
+ggsave("Output/Figures/winscroplandgrowth_1978_2012.png", width = 6, height = 4)
 
 ## And irrigated land in case that's interesting
 ggplot(data = countylevel_choro) + 
-  geom_sf(aes(fill = norm_irrlandgrowth_2012_1978), colour = NA) + theme_void() + 
-  scale_fill_viridis_c(breaks = c(-1,0,1), label = c(-1,0,1),
-                       trans = scales::pseudo_log_trans(),
-                       na.value = "grey") +
+  geom_sf(aes(fill = wins_irrlandgrowth_2012_1978), colour = NA) + theme_void() + 
+  scale_fill_viridis_c(na.value = "grey") +
   labs(fill = "") +
   theme(text = element_text(family = "Times New Roman"),
         plot.margin = margin(5, 5, 5, 5, "pt"),
         plot.title = element_text(hjust = 0.5)) +
   coord_sf(expand = FALSE)
-ggsave("Output/Figures/normirrlandgrowth_1978_2012.png", width = 6, height = 4)
+ggsave("Output/Figures/winsirrlandgrowth_1978_2012.png", width = 6, height = 4)
 
 ## And farms
 ggplot(data = countylevel_choro) + 
-  geom_sf(aes(fill = norm_farmsgrowth_2012_1978), colour = NA) + theme_void() + 
-  scale_fill_viridis_c(breaks = c(-1,0,1), label = c(-1,0,1),
-                       trans = scales::pseudo_log_trans(),
-                       na.value = "grey") +
+  geom_sf(aes(fill = pctl_farmsgrowth_2012_1978), colour = NA) + theme_void() + 
+  scale_fill_viridis_c(na.value = "grey") +
   labs(fill = "") +
   theme(text = element_text(family = "Times New Roman"),
         plot.margin = margin(5, 5, 5, 5, "pt"),
         plot.title = element_text(hjust = 0.5)) +
   coord_sf(expand = FALSE)
-ggsave("Output/Figures/normfarmsgrowth_1978_2012.png", width = 6, height = 4)
+ggsave("Output/Figures/pctlfarmsgrowth_1978_2012.png", width = 6, height = 4)
 
 ## And farm acre value
 ggplot(data = countylevel_choro) + 
-  geom_sf(aes(fill = norm_farmacrevaluegrowth_2012_1978), colour = NA) + theme_void() + 
-  scale_fill_viridis_c(breaks = c(-1,0,1), label = c(-1,0,1),
-                       trans = scales::pseudo_log_trans(),
-                       na.value = "grey") +
+  geom_sf(aes(fill = pctl_farmacrevaluegrowth_2012_1978), colour = NA) + theme_void() + 
+  scale_fill_viridis_c(na.value = "grey") +
   labs(fill = "") +
   theme(text = element_text(family = "Times New Roman"),
         plot.margin = margin(5, 5, 5, 5, "pt"),
         plot.title = element_text(hjust = 0.5)) +
   coord_sf(expand = FALSE)
-ggsave("Output/Figures/normfarmacrevaluegrowth_1978_2012.png", width = 6, height = 4)
+ggsave("Output/Figures/pctlfarmacrevaluegrowth_1978_2012.png", width = 6, height = 4)
 
 ## And farmland
 ggplot(data = countylevel_choro) + 
-  geom_sf(aes(fill = norm_farmlandgrowth_2012_1978), colour = NA) + theme_void() + 
-  scale_fill_viridis_c(breaks = c(-1,0,1), label = c(-1,0,1),
-                       trans = scales::pseudo_log_trans(),
-                       na.value = "grey") +
+  geom_sf(aes(fill = pctl_farmlandgrowth_2012_1978), colour = NA) + theme_void() + 
+  scale_fill_viridis_c(na.value = "grey") +
   labs(fill = "") +
   theme(text = element_text(family = "Times New Roman"),
         plot.margin = margin(5, 5, 5, 5, "pt"),
         plot.title = element_text(hjust = 0.5)) +
   coord_sf(expand = FALSE)
-ggsave("Output/Figures/normfarmlandgrowth_1978_2012.png", width = 6, height = 4)
+ggsave("Output/Figures/pctlfarmlandgrowth_1978_2012.png", width = 6, height = 4)
 
 ## And farm size
 ggplot(data = countylevel_choro) + 
-  geom_sf(aes(fill = norm_farmsizegrowth_2012_1978), colour = NA) + theme_void() + 
-  scale_fill_viridis_c(breaks = c(-1,0,1), label = c(-1,0,1),
-                       trans = scales::pseudo_log_trans(),
-                       na.value = "grey") +
+  geom_sf(aes(fill = pctl_farmsizegrowth_2012_1978), colour = NA) + theme_void() + 
+  scale_fill_viridis_c(na.value = "grey") +
   labs(fill = "") +
   theme(text = element_text(family = "Times New Roman"),
         plot.margin = margin(5, 5, 5, 5, "pt"),
         plot.title = element_text(hjust = 0.5)) +
   coord_sf(expand = FALSE)
-ggsave("Output/Figures/normfarmsizegrowth_1978_2012.png", width = 6, height = 4)
+ggsave("Output/Figures/pctlfarmsizegrowth_1978_2012.png", width = 6, height = 4)
+
+## And precipitation quintile
+ggplot(data = countylevel_choro) + 
+  geom_sf(aes(fill = quintile_precip), colour = NA) + theme_void() + 
+  scale_fill_viridis_c() +
+  labs(fill = "") +
+  theme(text = element_text(family = "Times New Roman"),
+        plot.margin = margin(5, 5, 5, 5, "pt"),
+        plot.title = element_text(hjust = 0.5)) +
+  coord_sf(expand = FALSE)
+ggsave("Output/Figures/precipquint_choro.png", width = 6, height = 4)
+
+ggplot(data = countylevel_choro) + 
+  geom_sf(aes(fill = quintile_emppercap), colour = NA) + theme_void() + 
+  scale_fill_viridis_c() +
+  labs(fill = "") +
+  theme(text = element_text(family = "Times New Roman"),
+        plot.margin = margin(5, 5, 5, 5, "pt"),
+        plot.title = element_text(hjust = 0.5)) +
+  coord_sf(expand = FALSE)
+ggsave("Output/Figures/emppercapquint_choro.png", width = 6, height = 4)
+
+ggplot(data = countylevel_choro) + 
+  geom_sf(aes(fill = quintile_agshare), colour = NA) + theme_void() + 
+  scale_fill_viridis_c() +
+  labs(fill = "") +
+  theme(text = element_text(family = "Times New Roman"),
+        plot.margin = margin(5, 5, 5, 5, "pt"),
+        plot.title = element_text(hjust = 0.5)) +
+  coord_sf(expand = FALSE)
+ggsave("Output/Figures/agsharequint_choro.png", width = 6, height = 4)
 
 ## And farm value
 ggplot(data = countylevel_choro) + 
-  geom_sf(aes(fill = norm_farmvaluegrowth_2012_1978), colour = NA) + theme_void() + 
-  scale_fill_viridis_c(breaks = c(-1,0,1), label = c(-1,0,1),
-                       trans = scales::pseudo_log_trans(),
-                       na.value = "grey") +
+  geom_sf(aes(fill = pctl_farmvaluegrowth_2012_1978), colour = NA) + theme_void() + 
+  scale_fill_viridis_c(na.value = "grey") +
   labs(fill = "") +
   theme(text = element_text(family = "Times New Roman"),
         plot.margin = margin(5, 5, 5, 5, "pt"),
         plot.title = element_text(hjust = 0.5)) +
   coord_sf(expand = FALSE)
-ggsave("Output/Figures/normfarmvaluegrowth_1978_2012.png", width = 6, height = 4)
+ggsave("Output/Figures/pctlfarmvaluegrowth_1978_2012.png", width = 6, height = 4)
 
 ## And production value
 ggplot(data = countylevel_choro) + 
-  geom_sf(aes(fill = norm_prodvalgrowth_2012_1978), colour = NA) + theme_void() + 
-  scale_fill_viridis_c(breaks = c(-1,0,1), label = c(-1,0,1),
-                       trans = scales::pseudo_log_trans(),
-                       na.value = "grey") +
+  geom_sf(aes(fill = wins_prodvalgrowth_2012_1978), colour = NA) + theme_void() + 
+  scale_fill_viridis_c(na.value = "grey") +
   labs(fill = "") +
   theme(text = element_text(family = "Times New Roman"),
         plot.margin = margin(5, 5, 5, 5, "pt"),
         plot.title = element_text(hjust = 0.5)) +
   coord_sf(expand = FALSE)
-ggsave("Output/Figures/normprodvalgrowth_1978_2012.png", width = 6, height = 4)
+ggsave("Output/Figures/winsprodvalgrowth_1978_2012.png", width = 6, height = 4)
 
 ##########################
 ### Checking correlations between the quintile measures
@@ -471,3 +495,7 @@ ggplot(quintcorr_sum, aes(x = quintile_emppercap,
        fill = "# of Counties",
        subtitle = paste0("Correlation = ", quintcorr_tot)) + scale_fill_viridis_c(begin = 0.4)
 ggsave("Output/Figures/quintcorr.png")
+
+directsalessum <- sum(countylevel_all$directsales_2012, na.rm = TRUE)
+prodvalsum <- sum(countylevel_all$prodval_2012, na.rm = TRUE)
+directsalessum/prodvalsum

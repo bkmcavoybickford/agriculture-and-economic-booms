@@ -106,8 +106,7 @@ growth_rates <- cbp_bycounty |>
            fipstate %in% c(17, 18, 26, 39, 55, 19, 20, 27, 29, 31, 38, 46) ~ "Midwest",
            fipstate %in% c(10, 11, 12, 13, 24, 37, 45, 51, 54, 01, 21, 28, 47, 05, 22, 40, 48) ~ "South",
            fipstate %in% c(04, 08, 16, 30, 32, 35, 49, 56, 02, 06, 15, 41, 53) ~ "West"
-         )) |>
-  filter(`1978` > 1) #Removing all observations that wouldn't get a weight basically
+         ))
 
 ## Doing growth rates without pivoting
 growth_rates_nopivot <- cbp_bycounty |>
@@ -127,6 +126,79 @@ growth_rates_nopivot <- cbp_bycounty |>
          )) |>
   filter(weight > 0) |> #Removing all observations that wouldn't get a weight basically
   select(weight, "econgrowth" = growth, countycode, year_base, year_end, emp_base)
+
+growth_rates_wins <- growth_rates_nopivot |>
+  group_by(year_base, year_end) |>
+  mutate(growth = winsorize(econgrowth),
+         pair = paste0("growth_", year_end, "_", year_base)) |>
+  ungroup() |>
+  select(countycode, pair, growth) |>
+  pivot_wider(names_from = pair, values_from = growth) |>
+  left_join(emp_wide, by = c("countycode")) |>
+  mutate(weight_1978 = log(`1978`), #Getting weights for each year
+         weight_1982 = log(`1982`),
+         weight_1987 = log(`1987`),
+         weight_1992 = log(`1992`),
+         weight_1997 = log(`1997`),
+         weight_2002 = log(`2002`),
+         weight_2007 = log(`2007`),
+         region = case_when(#Census Bureau regions
+           fipstate %in% c(09, 23, 25, 33, 44, 50, 34, 36, 42) ~ "Northeast",
+           fipstate %in% c(17, 18, 26, 39, 55, 19, 20, 27, 29, 31, 38, 46) ~ "Midwest",
+           fipstate %in% c(10, 11, 12, 13, 24, 37, 45, 51, 54, 01, 21, 28, 47, 05, 22, 40, 48) ~ "South",
+           fipstate %in% c(04, 08, 16, 30, 32, 35, 49, 56, 02, 06, 15, 41, 53) ~ "West"
+         ))
+  
+
+## And getting census years
+cbp_bycounty_census <- cbp_mod |>
+  filter(year %in% c(1980, 1990, 2000, 2010, 2015)) |>
+  group_by(year, fipstate, fipscty) |>
+  summarize(emp = sum(emp, na.rm = TRUE)) |>
+  mutate(countycode = paste(fipstate, fipscty))
+
+emp_wide_census <- cbp_bycounty_census |>
+  pivot_wider(names_from = year, values_from = emp)
+
+## Converting these into growth rates
+growth_rates_census <- cbp_bycounty_census |>
+  inner_join(cbp_bycounty_census, 
+             by = c("fipstate", "fipscty"), 
+             suffix = c("_base", "_end")) |>
+  filter(year_end > year_base) |>
+  mutate(growth = 100 * (emp_end - emp_base) / emp_base,
+         pair = paste0("growth_", year_end, "_", year_base)) |>
+  select(fipstate, fipscty, pair, growth) |>
+  pivot_wider(names_from = pair, values_from = growth) |>
+  left_join(emp_wide_census, by = c("fipstate", "fipscty")) |>
+  mutate(countycode = paste(fipstate, fipscty),
+         weight_1980 = log(`1980`), #Getting weights for each year
+         weight_1990 = log(`1990`),
+         weight_2000 = log(`2000`),
+         weight_2010 = log(`2010`),
+         weight_2015 = log(`2015`))
+
+
+## Robustness to manufacturing only
+## Getting all of the ones that I actually use
+cbp_bycounty_manuf <- cbp_mod |>
+  filter(year %in% c(1978, 1982, 1987, 1992, 1997, 2002, 2007, 2012)) |>
+  filter(str_sub(naics12, 1, 1) == 3) |>
+  group_by(year, fipstate, fipscty) |>
+  summarize(emp = sum(emp, na.rm = TRUE)) |>
+  mutate(countycode = paste(fipstate, fipscty))
+
+## Converting these into growth rates
+growth_rates_manuf <- cbp_bycounty_manuf |>
+  inner_join(cbp_bycounty_manuf, 
+             by = c("fipstate", "fipscty"), 
+             suffix = c("_base", "_end")) |>
+  filter(year_end > year_base) |>
+  mutate(growth = 100 * (emp_end - emp_base) / emp_base,
+         pair = paste0("growth_manuf_", year_end, "_", year_base)) |>
+  select(fipstate, fipscty, pair, "growth_manuf" = growth) |>
+  pivot_wider(names_from = pair, values_from = growth_manuf) |>
+  mutate(countycode = paste(fipstate, fipscty))
   
 ## Doing it a little differently to match some other data
 cbp_19801990 <- cbp_mod |>
@@ -260,15 +332,19 @@ shares <- cbp_mod_shares |>
         filter(year == i) |>
         select(countycode, naics4, emppct) |>
         pivot_wider(values_from = emppct, names_from = countycode)
+assign(paste0("shares_", i, "_", j), shares)
 shifts <- cbp_mod_shifts |>
       ungroup() |>
       filter(year == i | year == j) |>
       complete(naics4, year, fill = list(emp = 0)) |>
       group_by(naics4) |>
       summarize(growth = if_else(emp[year == i] == 0, NA,
-                                 (emp[year == j]-emp[year == i])/emp[year == i]))
+                                 (emp[year == j]-emp[year == i])/emp[year == i])) |>
+  mutate(growth = winsorize(growth))
+assign(paste0("shifts_", i, "_", j), shifts)
 
 commonnaics <- intersect(unique(shares$naics4), unique(shifts$naics4))
+assign(paste0("commonnaics_", i, "_", j), commonnaics)
 
 shares_mat <- shares |>
   filter(naics4 %in% commonnaics) |>
@@ -276,15 +352,18 @@ shares_mat <- shares |>
         mutate(across(everything(), ~replace_na(.x, 0))) |>
         select(-naics4) |>
         as.matrix()
+assign(paste0("sharesmat_", i, "_", j), shares_mat)
 shifts_mat <- shifts |>
   filter(naics4 %in% commonnaics) |>
   arrange(naics4) |>
   ungroup() |>
   select(growth) |>
   as.matrix()
+assign(paste0("shiftsmat_", i, "_", j), shifts_mat)
 shiftshare <- t(shares_mat)%*%shifts_mat |>
   as.data.frame() |>
   rownames_to_column("countycode") |>
+  mutate(growth = 100*growth) |>
   rename(!!paste0("shiftshare_", j, "_", i) := 2)
 shiftshare_all <- left_join(shiftshare_all, shiftshare,
                             by = "countycode")
@@ -329,16 +408,16 @@ for (i in c(1978, 1982, 1987, 1992, 1997, 2002, 2007)) {
         summarize(growth = if_else(emp[year == i] == 0, NA,
                                    (emp[year == j]-emp[year == i])/emp[year == i]))
       
-      commonnaics <- intersect(unique(shares$naics2), unique(shifts$naics2))
+      commonnaics2 <- intersect(unique(shares$naics2), unique(shifts$naics2))
       
       shares_mat <- shares |>
-        filter(naics2 %in% commonnaics) |>
+        filter(naics2 %in% commonnaics2) |>
         arrange(naics2) |>
         mutate(across(everything(), ~replace_na(.x, 0))) |>
         select(-naics2) |>
         as.matrix()
       shifts_mat <- shifts |>
-        filter(naics2 %in% commonnaics) |>
+        filter(naics2 %in% commonnaics2) |>
         arrange(naics2) |>
         ungroup() |>
         select(growth) |>
@@ -388,7 +467,8 @@ for (i in c(1978, 1982, 1987, 1992, 1997, 2002, 2007)) {
         complete(naics4, year, fill = list(emp = 0)) |>
         group_by(naics4) |>
         summarize(growth = if_else(emp[year == i] == 0, NA,
-                                   (emp[year == j]-emp[year == i])/emp[year == i]))
+                                   (emp[year == j]-emp[year == i])/emp[year == i])) |>
+        mutate(growth = winsorize(growth))
       
       commonnaics <- intersect(unique(shares$naics4), unique(shifts$naics4))
       
@@ -412,3 +492,103 @@ for (i in c(1978, 1982, 1987, 1992, 1997, 2002, 2007)) {
                                   by = "countycode")
     }}
 }
+
+## The census years version
+## The shares portion
+cbp_mod_shares_census <- cbp_mod |>
+  filter(year %in% c(1980, 1990, 2000, 2010, 2015)) |>
+  select(naics12, countycode, year, emppct) |>
+  filter(!is.na(emppct)) |>
+  mutate(naicstrimmed = str_replace_all(naics12, "[/-]", ""),
+         naics4 = str_sub(naics12, 1, 4)) |>
+  group_by(naics4, countycode, year) |>
+  summarize(emppct = sum(emppct, na.rm = TRUE))
+
+## The shifts portion
+cbp_mod_shifts_census <- cbp_mod |>
+  mutate(naicstrimmed = str_replace_all(naics12, "[/-]", ""),
+         naics4 = str_sub(naics12, 1, 4)) |>
+  filter(year %in% c(1980, 1990, 2000, 2010, 2015)) |>
+  group_by(naics4, year) |>
+  summarize(emp = sum(emp, na.rm = TRUE))
+
+## Doing it by hand
+shiftshare_all_census <- as.data.frame(unique(cbp_mod_shares_census$countycode)) |>
+  select("countycode" = 1)
+for (i in c(1980, 1990, 2000, 2010, 2015)) {
+  for (j in c(1980, 1990, 2000, 2010, 2015)) {
+    if (j <= i) print("NA") else{
+      shares <- cbp_mod_shares_census |>
+        ungroup() |>
+        filter(year == i) |>
+        select(countycode, naics4, emppct) |>
+        pivot_wider(values_from = emppct, names_from = countycode)
+      shifts <- cbp_mod_shifts_census |>
+        ungroup() |>
+        filter(year == i | year == j) |>
+        complete(naics4, year, fill = list(emp = 0)) |>
+        group_by(naics4) |>
+        summarize(growth = if_else(emp[year == i] == 0, NA,
+                                   (emp[year == j]-emp[year == i])/emp[year == i]))
+      
+      commonnaics <- intersect(unique(shares$naics4), unique(shifts$naics4))
+      
+      shares_mat <- shares |>
+        filter(naics4 %in% commonnaics) |>
+        arrange(naics4) |>
+        mutate(across(everything(), ~replace_na(.x, 0))) |>
+        select(-naics4) |>
+        as.matrix()
+      shifts_mat <- shifts |>
+        filter(naics4 %in% commonnaics) |>
+        arrange(naics4) |>
+        ungroup() |>
+        select(growth) |>
+        as.matrix()
+      shiftshare <- t(shares_mat)%*%shifts_mat |>
+        as.data.frame() |>
+        rownames_to_column("countycode") |>
+        rename(!!paste0("shiftshare_", j, "_", i) := 2)
+      shiftshare_all_census <- left_join(shiftshare_all_census, shiftshare,
+                                  by = "countycode")
+    }}
+}
+
+############################
+### Importing census and ACS data
+############################
+
+census1980 <- read_csv("Data/nhgis_countylevel/nhgis0006_ds107_1980_county.csv") |>
+  mutate(STATEA = as.numeric(STATEA),
+         COUNTYA = as.numeric(COUNTYA)) |>
+  mutate(countycode = paste(STATEA, COUNTYA)) |>
+  select(countycode, "censusemp_1980" = DIA001)
+census1990 <- read_csv("Data/nhgis_countylevel/nhgis0006_ds123_1990_county.csv") |>
+  mutate(STATEA = as.numeric(STATEA),
+         COUNTYA = as.numeric(COUNTYA)) |>
+  mutate(countycode = paste(STATEA, COUNTYA),
+         censusemp_1990 = E4P001 + E4P002) |>
+  select(countycode, censusemp_1990)
+census2000 <- read_csv("Data/nhgis_countylevel/nhgis0006_ds151_2000_county.csv") |>
+  mutate(STATEA = as.numeric(STATEA),
+         COUNTYA = as.numeric(COUNTYA)) |>
+  mutate(countycode = paste(STATEA, COUNTYA),
+         censusemp_2000 = GMI001 + GMI014 + GMI002 + GMI015) |>
+  select(countycode, censusemp_2000)
+acs2010 <- read_csv("Data/nhgis_countylevel/nhgis0006_ds177_20105_county.csv") |>
+  mutate(STATEA = as.numeric(STATEA),
+         COUNTYA = as.numeric(COUNTYA)) |>
+  mutate(countycode = paste(STATEA, COUNTYA),
+         censusemp_2010 = J7FE002) |>
+  select(countycode, censusemp_2010)
+acs2015 <- read_csv("Data/nhgis_countylevel/nhgis0006_ds216_20155_county.csv") |>
+  mutate(STATEA = as.numeric(STATEA),
+         COUNTYA = as.numeric(COUNTYA)) |>
+  mutate(countycode = paste(STATEA, COUNTYA),
+         censusemp_2015 = AD7GE002) |>
+  select(countycode, censusemp_2015)
+censusemp <- census1980 |>
+  left_join(census1990, by = "countycode") |>
+  left_join(census2000, by = "countycode") |>
+  left_join(acs2010, by = "countycode") |>
+  left_join(acs2015, by = "countycode")
